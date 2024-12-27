@@ -84,8 +84,14 @@ export class GetPageStatusUsingPuppeteerController {
     }
 
     const { links } = await checkPageStatusAndGetLinks(url);
-    res.status(200).json({
-      links: links,
-    });
+    if (links.length > 0) {
+      res.status(200).json({
+        links: links,
+      });
+    } else {
+      res.status(404).json({
+        links: links,
+      });
+    }
   }
 }
