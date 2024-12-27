@@ -5,13 +5,17 @@ import { Response } from 'express';
 export class GetPageStatusController {
   @Get()
   async fetchUrl(@Query('url') url: string, @Res() res: Response) {
-    let response;
+    let response: globalThis.Response;
     try {
       response = await fetch(url);
-      res.status(200).json({
-        status: 200,
-        text: await response.text(),
-      });
+
+      if (response.ok) {
+        return res.status(200).json({
+          status: 200,
+          text: await response.text(),
+        });
+      }
+      return res.status(404).json({});
     } catch (error) {
       res.status(404).json({
         status: 404,
