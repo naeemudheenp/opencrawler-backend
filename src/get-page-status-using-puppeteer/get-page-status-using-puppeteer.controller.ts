@@ -12,7 +12,7 @@ let browser;
 async function getBrowser() {
   if (browser) return browser;
 
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'production') {
+  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'productions') {
     browser = await puppeteerCore.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(remoteExecutablePath),
