@@ -8,8 +8,11 @@ let browser;
 async function getBrowser() {
   if (browser) return browser;
 
-  // Launch browser with Render-compatible options
+  // Use Render's provided Chromium binary path
+  const executablePath = process.env.CHROME_BIN || '/usr/bin/chromium';
+
   browser = await puppeteer.launch({
+    executablePath,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
