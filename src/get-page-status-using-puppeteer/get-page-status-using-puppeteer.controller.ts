@@ -1,50 +1,56 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
-import chromium from '@sparticuz/chromium-min';
-import puppeteerCore from 'puppeteer-core';
 import puppeteer from 'puppeteer';
 import { Response } from 'express';
 
-const remoteExecutablePath =
-  'https://github.com/Sparticuz/chromium/releases/download/v121.0.0/chromium-v121.0.0-pack.tar';
-
 let browser;
 
+// Initialize the browser instance
 async function getBrowser() {
   if (browser) return browser;
 
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'productions') {
-    browser = await puppeteerCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(remoteExecutablePath),
-      headless: true,
-    });
-  } else {
-    browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      headless: true,
-    });
-  }
+  // Launch browser with Render-compatible options
+  browser = await puppeteer.launch({
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--single-process',
+      '--no-zygote',
+    ],
+    headless: true,
+  });
+
   return browser;
 }
 
+// Cleanup browser instance on process exit
+process.on('exit', async () => {
+  if (browser) {
+    await browser.close();
+  }
+});
+
+// Function to check page status and fetch internal links
 async function checkPageStatusAndGetLinks(url) {
-  let statusCode;
+  let statusCode = 404;
   let links = [];
+
   try {
     const browser = await getBrowser();
     const page = await browser.newPage();
 
-    // Wait for the page to load completely
+    // Navigate to the URL
     const response = await page.goto(url, { waitUntil: 'networkidle0' });
-    statusCode = response && response.status() === 200 ? 200 : 404;
 
-    // Fetch all anchor tags if the page loaded successfully
-    if (statusCode === 200) {
-      // Extract the domain from the input URL
+    // Check if the page loaded successfully
+    if (response && response.status() === 200) {
+      statusCode = 200;
+
+      // Extract domain to filter internal links
       const parsedUrl = new URL(url);
       const domain = parsedUrl.hostname;
 
-      // Fetch all links and filter them by domain
+      // Collect all internal links
       links = await page.$$eval(
         'a',
         (anchors, domain) => {
@@ -53,9 +59,9 @@ async function checkPageStatusAndGetLinks(url) {
             .filter((href) => {
               try {
                 const linkDomain = new URL(href).hostname;
-                return linkDomain === domain; // Only include links from the same domain
-              } catch (e) {
-                return false; // Ignore invalid or malformed URLs
+                return linkDomain === domain; // Filter links within the same domain
+              } catch {
+                return false; // Ignore invalid URLs
               }
             });
         },
@@ -65,11 +71,13 @@ async function checkPageStatusAndGetLinks(url) {
 
     await page.close();
   } catch (error) {
-    statusCode = 404;
+    console.error('Error fetching page:', error);
   }
+
   return { statusCode, links };
 }
 
+// Controller to handle the GET request
 @Controller('get-page-status-using-puppeteer')
 export class GetPageStatusUsingPuppeteerController {
   @Get()
@@ -77,21 +85,20 @@ export class GetPageStatusUsingPuppeteerController {
     @Query('url') url: string,
     @Res() res: Response,
   ) {
+    // Validate input URL
     if (!url) {
-      res.status(200).json({
-        text: 'URL parameter is required',
+      return res.status(400).json({
+        error: 'URL parameter is required',
       });
     }
 
-    const { links } = await checkPageStatusAndGetLinks(url);
-    if (links.length > 0) {
-      res.status(200).json({
-        links: links,
-      });
+    const { statusCode, links } = await checkPageStatusAndGetLinks(url);
+
+    // Return results based on status code
+    if (statusCode === 200) {
+      return res.status(200).json({ links });
     } else {
-      res.status(404).json({
-        links: links,
-      });
+      return res.status(404).json({ links });
     }
   }
 }
