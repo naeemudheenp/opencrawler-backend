@@ -4,6 +4,6 @@ import { Controller, Get } from '@nestjs/common';
 export class AllhamullilahController {
   @Get()
   findAll() {
-    return 'allhamullilah..its just a begining....';
+    return 'allhamullilah..its just a begining....yes';
   }
 }
