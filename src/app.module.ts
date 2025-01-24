@@ -7,12 +7,13 @@ import { GetPageStatusController } from './get-page-status/get-page-status.contr
 import { GetPageStatusUsingPuppeteerController } from './get-page-status-using-puppeteer/get-page-status-using-puppeteer.controller';
 import { BullModule } from '@nestjs/bullmq';
 import { BullBoardModule } from '@bull-board/nestjs';
-import { ExpressAdapter } from '@bull-board/express'; // Use FastifyAdapter if using Fastify
+import { ExpressAdapter } from '@bull-board/express';
 import { EmailModule } from './email/email.module';
 import { EmailProcessor } from './email/email.processor';
 import { EmailService } from './email/email.service';
 import { SentEmailController } from './sent-email/sent-email.controller';
 import { ConfigModule } from '@nestjs/config';
+import { AddJobController } from './add-job/add-job.controller';
 
 @Module({
   imports: [
@@ -24,10 +25,10 @@ import { ConfigModule } from '@nestjs/config';
       },
     }),
     BullBoardModule.forRoot({
-      route: '/queues', // Base route for the dashboard
-      adapter: ExpressAdapter, // Or FastifyAdapter
+      route: '/queues',
+      adapter: ExpressAdapter,
     }),
-    EmailModule, // Include your custom module here
+    EmailModule,
   ],
   controllers: [
     AppController,
@@ -36,6 +37,7 @@ import { ConfigModule } from '@nestjs/config';
     GetPageStatusUsingPuppeteerController,
     TestController,
     SentEmailController,
+    AddJobController,
   ],
   providers: [AppService, EmailModule, EmailProcessor, EmailService],
 })

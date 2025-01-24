@@ -8,14 +8,14 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 @Module({
   imports: [
     BullModule.registerQueue({
-      name: 'emailQueue', // Name of the queue
+      name: 'emailQueue',
     }),
     BullBoardModule.forFeature({
       name: 'emailQueue',
-      adapter: BullMQAdapter, //or use BullAdapter if you're using bull instead of bullMQ
+      adapter: BullMQAdapter,
     }),
   ],
   providers: [EmailService, EmailProcessor],
-  exports: [EmailService, BullModule, EmailProcessor], // Export service for use in other modules
+  exports: [EmailService, BullModule, EmailProcessor],
 })
 export class EmailModule {}

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-const { parseStringPromise } = require('xml2js');
+import { parseStringPromise } from 'xml2js';
 
 @Injectable()
 export class FetchUsingUrlService {
   public async crawlSitemap(initialUrl: string) {
-    let brokenUrl = [];
-    let allPages = [];
+    const brokenUrl = [];
+    const allPages = [];
 
     const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
       for (let i = 0; i < retries; i++) {
@@ -44,7 +44,7 @@ export class FetchUsingUrlService {
     };
 
     try {
-      let response = await fetchWithRetry(initialUrl);
+      const response = await fetchWithRetry(initialUrl);
       const xml = await response.text();
       const result = await parseStringPromise(xml);
       let urls = [];

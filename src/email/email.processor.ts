@@ -1,7 +1,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Resend } from 'resend';
-const { parseStringPromise } = require('xml2js');
+import { parseStringPromise } from 'xml2js';
 
 @Processor('emailQueue')
 export class EmailProcessor extends WorkerHost {
@@ -93,9 +93,8 @@ export class EmailProcessor extends WorkerHost {
     </html>
   `,
     });
-
-    let brokenUrl = [];
-    let allPages = [];
+    const brokenUrl = [];
+    const allPages = [];
 
     const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
       for (let i = 0; i < retries; i++) {
@@ -133,7 +132,7 @@ export class EmailProcessor extends WorkerHost {
     };
 
     try {
-      let response = await fetchWithRetry(new URL(job.data.url));
+      const response = await fetchWithRetry(new URL(job.data.url));
       const xml = await response.text();
       const result = await parseStringPromise(xml);
       let urls = [];
@@ -144,7 +143,7 @@ export class EmailProcessor extends WorkerHost {
         );
 
         for (const sitemapUrl of sitemapUrls) {
-          await new Promise((resolve) => setTimeout(resolve, 500)); // Throttle requests
+          await new Promise((resolve) => setTimeout(resolve, 500));
           const subResponse = await fetchWithRetry(sitemapUrl);
           const subXml = await subResponse.text();
           const subResult = await parseStringPromise(subXml);
