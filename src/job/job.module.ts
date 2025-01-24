@@ -1,21 +1,21 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { EmailProcessor } from './email.processor';
-import { EmailService } from './email.service';
+import { JobProcessor } from './job.processor';
+import { JobService } from './job.service';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 
 @Module({
   imports: [
     BullModule.registerQueue({
-      name: 'emailQueue',
+      name: 'jobQueue',
     }),
     BullBoardModule.forFeature({
-      name: 'emailQueue',
+      name: 'jobQueue',
       adapter: BullMQAdapter,
     }),
   ],
-  providers: [EmailService, EmailProcessor],
-  exports: [EmailService, BullModule, EmailProcessor],
+  providers: [JobService, JobProcessor],
+  exports: [JobService, BullModule, JobProcessor],
 })
-export class EmailModule {}
+export class JobModule {}

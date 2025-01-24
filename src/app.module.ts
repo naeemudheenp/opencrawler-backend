@@ -8,9 +8,9 @@ import { GetPageStatusUsingPuppeteerController } from './get-page-status-using-p
 import { BullModule } from '@nestjs/bullmq';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
-import { EmailModule } from './email/email.module';
-import { EmailProcessor } from './email/email.processor';
-import { EmailService } from './email/email.service';
+import { JobModule } from './job/job.module';
+import { JobProcessor } from './job/job.processor';
+import { JobService } from './job/job.service';
 import { SentEmailController } from './sent-email/sent-email.controller';
 import { ConfigModule } from '@nestjs/config';
 import { AddJobController } from './add-job/add-job.controller';
@@ -28,7 +28,7 @@ import { AddJobController } from './add-job/add-job.controller';
       route: '/queues',
       adapter: ExpressAdapter,
     }),
-    EmailModule,
+    JobModule,
   ],
   controllers: [
     AppController,
@@ -39,6 +39,6 @@ import { AddJobController } from './add-job/add-job.controller';
     SentEmailController,
     AddJobController,
   ],
-  providers: [AppService, EmailModule, EmailProcessor, EmailService],
+  providers: [AppService, JobModule, JobProcessor, JobService],
 })
 export class AppModule {}

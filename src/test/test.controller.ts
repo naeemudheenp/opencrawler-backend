@@ -1,12 +1,12 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { EmailService } from 'src/email/email.service';
+import { JobService } from 'src/job/job.service';
 
 @Controller('test')
 export class TestController {
-  constructor(private readonly emailService: EmailService) {}
-  @Post('sendEmail')
-  async sendEmail(@Body() email: any) {
-    const jobId = await this.emailService.sendEmail({
+  constructor(private readonly jobService: JobService) {}
+  @Post('addJob')
+  async addJob(@Body() email: any) {
+    const jobId = await this.jobService.addJob({
       email: email.email,
       url: email.url,
     });

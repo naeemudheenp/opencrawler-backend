@@ -3,8 +3,8 @@ import { Job } from 'bullmq';
 import { Resend } from 'resend';
 import { parseStringPromise } from 'xml2js';
 
-@Processor('emailQueue')
-export class EmailProcessor extends WorkerHost {
+@Processor('jobQueue')
+export class JobProcessor extends WorkerHost {
   async process(job: Job<any, any, string>): Promise<any> {
     const resend = new Resend('re_Mvnz2kcJ_6LbmNMnxezBNyHWC6a5VDwHg');
     await resend.emails.send({
