@@ -22,6 +22,8 @@ import { AddJobController } from './add-job/add-job.controller';
       connection: {
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT),
+        username: 'default',
+        password: 'tAOylOZ71hyYSBLuaNdhVeJQy4ENPRY4',
       },
     }),
     BullBoardModule.forRoot({
