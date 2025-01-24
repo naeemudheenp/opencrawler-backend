@@ -24,8 +24,6 @@ export class FetchUsingUrlService {
     };
 
     const processUrlsInBatches = async (urls, batchSize = 10) => {
-      console.log('hy');
-
       for (let i = 0; i < urls.length; i += batchSize) {
         const batch = urls.slice(i, i + batchSize);
         await Promise.all(
@@ -35,11 +33,10 @@ export class FetchUsingUrlService {
               if (response.status != 200) {
                 brokenUrl.push(url);
               }
-              console.log(response, 'urlsssss');
 
               allPages.push(url);
             } catch (error) {
-              console.log(error, 'error-reals');
+              console.log(error, 'error');
             }
           }),
         );

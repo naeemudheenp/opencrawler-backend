@@ -6,15 +6,14 @@ import { Queue } from 'bullmq';
 export class EmailService {
   constructor(@InjectQueue('emailQueue') private emailQueue: Queue) {}
 
-  async sendEmail(emailData: { email: string }) {
-    console.log('gotcha');
-
+  async sendEmail(emailData: { email: string; url: string }) {
     try {
-      const job = await this.emailQueue.add('sendEmail', emailData);
+      await fetch(
+        `${process.env.BACKEND_URL}/sent-email?email=${emailData.email}`,
+      );
+      await this.emailQueue.add('sendEmail', emailData);
     } catch (error) {
       return `${error} 'error'`;
     }
-    return;
-    // Return the job ID for tracking
   }
 }

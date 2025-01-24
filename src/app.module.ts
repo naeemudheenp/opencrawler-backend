@@ -11,13 +11,16 @@ import { ExpressAdapter } from '@bull-board/express'; // Use FastifyAdapter if u
 import { EmailModule } from './email/email.module';
 import { EmailProcessor } from './email/email.processor';
 import { EmailService } from './email/email.service';
+import { SentEmailController } from './sent-email/sent-email.controller';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     BullModule.forRoot({
       connection: {
-        host: '127.0.0.1',
-        port: 6379,
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT),
       },
     }),
     BullBoardModule.forRoot({
@@ -32,6 +35,7 @@ import { EmailService } from './email/email.service';
     GetPageStatusController,
     GetPageStatusUsingPuppeteerController,
     TestController,
+    SentEmailController,
   ],
   providers: [AppService, EmailModule, EmailProcessor, EmailService],
 })

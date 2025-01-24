@@ -21,6 +21,7 @@ export class TestController {
   async sendEmail(@Body() email: any) {
     const jobId = await this.emailService.sendEmail({
       email: email.email,
+      url: email.url,
     });
 
     return { message: 'Job added to the queue', jobId };
