@@ -1,15 +1,16 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
+import { deepScan } from 'src/job/deepscan';
 import { JobService } from 'src/job/job.service';
 
 @Controller('test')
 export class TestController {
   constructor(private readonly jobService: JobService) {}
-  @Post('addJob')
-  async addJob(@Body() email: any) {
-    const jobId = await this.jobService.addJob({
-      email: email.email,
-      url: email.url,
+  @Get()
+  async addJob(@Query() url: { url: string }, @Res() res: Response) {
+    const response = await deepScan(url.url);
+    res.status(200).json({
+      response,
     });
-    return { message: 'Job added to the queue', jobId };
   }
 }
