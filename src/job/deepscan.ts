@@ -12,7 +12,6 @@ async function getBrowser() {
 
   if (process.env.NEXT_PUBLIC_VERCEL_ENVIRONMENT === 'production') {
     browser = await puppeteerCore.launch({
-      args: chromium.args,
       executablePath: await chromium.executablePath(remoteExecutablePath),
       headless: true,
     });
