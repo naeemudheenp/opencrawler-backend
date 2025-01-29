@@ -28,7 +28,7 @@ export class Emailer {
     await this.resend.emails.send({
       from: 'opencrawler <no-replay@opencrawler.in>',
       to: [email],
-      subject: 'Crawling Initiated',
+      subject: 'Opencrawler Crawling Status',
       html: this.emailContent.crawlingCompletedEmail(allPages, brokenPages),
     });
   }
