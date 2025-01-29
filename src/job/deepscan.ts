@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer';
+import { Emailer } from 'src/emails/emailer';
 
 let browser: any = null;
 
@@ -29,8 +30,6 @@ async function getBrowser() {
 }
 
 async function checkPageStatusAndGetLinks(url: string) {
-  console.log(url, 'urls');
-
   let statusCode = 404;
   let links: string[] = [];
 
@@ -69,16 +68,15 @@ async function checkPageStatusAndGetLinks(url: string) {
   return { statusCode, links };
 }
 
-export async function deepScan(initialUrl: string) {
+export async function deepScan(initialUrl: string, email: string) {
   const allPages = new Set<string>([initialUrl]);
   const brokenLinks = new Set<string>();
   const pageToVisit = [initialUrl];
+  const emailer = new Emailer();
 
   while (pageToVisit.length > 0) {
-    console.log('keri');
-
     const url = pageToVisit.shift();
-    if (!url) continue; // Skip if url is undefined
+    if (!url) continue;
 
     const response = await checkPageStatusAndGetLinks(url);
 
@@ -93,6 +91,5 @@ export async function deepScan(initialUrl: string) {
       }
     });
   }
-
-  return { brokenLinks, allPages };
+  await emailer.crawlingCompletedEmail(email, brokenLinks, allPages);
 }
