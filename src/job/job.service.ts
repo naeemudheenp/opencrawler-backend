@@ -14,9 +14,11 @@ export class JobService {
 
   async addJob(emailData: InterfaceJob) {
     try {
-      await fetch(
-        `${process.env.BACKEND_URL}/sent-email?email=${emailData.email}`,
-      );
+      if (!emailData.postActionApi) {
+        await fetch(
+          `${process.env.BACKEND_URL}/sent-email?email=${emailData.email}`,
+        );
+      }
 
       await this.emailQueue.add('addJob', emailData);
     } catch (error) {

@@ -1,7 +1,11 @@
 import { Emailer } from 'src/emails/emailer';
 import { parseStringPromise } from 'xml2js';
 
-export async function siteMapScan(initialUrl: string, email: string) {
+export async function siteMapScan(
+  initialUrl: string,
+  email: string,
+  postActionApi: string,
+) {
   const brokenUrl = [];
   const allPages = [];
   const emailer = new Emailer();
@@ -73,5 +77,15 @@ export async function siteMapScan(initialUrl: string, email: string) {
   } catch (error) {
     console.error('Failed to parse sitemap:', error);
   }
-  await emailer.crawlingCompletedEmail(email, brokenUrl, allPages);
+  if (postActionApi) {
+    await fetch(postActionApi, {
+      method: 'POST',
+      body: JSON.stringify({
+        brokenUrl: [...brokenUrl],
+        allPages: [...allPages],
+      }),
+    });
+  } else {
+    await emailer.crawlingCompletedEmail(email, brokenUrl, allPages);
+  }
 }

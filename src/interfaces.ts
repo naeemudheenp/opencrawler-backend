@@ -1,4 +1,5 @@
 export interface InterfaceJob {
+  postActionApi: string | null;
   email: string;
   url: string;
   mode: string;

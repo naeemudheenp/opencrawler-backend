@@ -8,15 +8,26 @@ import { Emailer } from 'src/emails/emailer';
 @Processor('jobQueue')
 export class JobProcessor extends WorkerHost {
   async process(
-    job: Job<{ email: string; url: string; mode: string }, any, string>,
+    job: Job<
+      {
+        postActionApi: any;
+        email: string;
+        url: string;
+        mode: string;
+      },
+      any,
+      string
+    >,
   ): Promise<any> {
     const emailer = new Emailer();
-    emailer.sentCrawlInitiatedEmail(job.data.email);
+    if (!job.data.postActionApi) {
+      await emailer.sentCrawlInitiatedEmail(job.data.email);
+    }
 
     if (job.data.mode === modes.deepscan) {
-      await deepScan(job.data.url, job.data.email);
+      await deepScan(job.data.url, job.data.email, job.data.postActionApi);
     } else {
-      await siteMapScan(job.data.url, job.data.email);
+      await siteMapScan(job.data.url, job.data.email, job.data.postActionApi);
     }
   }
 
