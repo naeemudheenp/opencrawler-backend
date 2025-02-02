@@ -7,16 +7,20 @@ async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-zygote',
-        '--single-process',
         '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-setuid-sandbox',
+        '--no-first-run',
+        '--no-sandbox',
+        '--no-zygote',
+        '--deterministic-fetch',
+        '--disable-features=IsolateOrigins',
+        '--disable-site-isolation-trials',
+        // '--single-process',
       ],
       headless: true,
       timeout: 60000,
+      protocolTimeout: 120000,
     });
 
     console.log('Puppeteer browser launched');
@@ -37,7 +41,7 @@ async function checkPageStatusAndGetLinks(
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       page = await browser.newPage();
-      const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+      const response = await page.goto(url, { waitUntil: 'networkidle0' });
       console.log(response, 'response', url);
 
       statusCode = response?.status() || 404;
@@ -91,11 +95,9 @@ export async function deepScan(
   const brokenLinks = new Set<string>();
   const pageToVisit = [initialUrl];
   const emailer = new Emailer();
-  const MAX_PAGES_TO_VISIT = 5000;
+  const MAX_PAGES_TO_VISIT = 50000000;
 
   try {
-    await getBrowser();
-
     while (pageToVisit.length > 0) {
       if (allPages.size >= MAX_PAGES_TO_VISIT) {
         console.log('Reached page crawl limit, stopping further requests.');
@@ -109,9 +111,9 @@ export async function deepScan(
 
       try {
         const response = await checkPageStatusAndGetLinks(url);
-        console.log('Crawling:', url);
+        console.log('Crawling:', url, response.statusCode);
 
-        if (response.statusCode !== 200) {
+        if (response.statusCode === 404) {
           brokenLinks.add(url);
         }
 
