@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import { Emailer } from 'src/emails/emailer';
 
-let browser: any = null;
+let browser = null;
 
 async function getBrowser() {
   if (!browser) {
@@ -18,97 +18,44 @@ async function getBrowser() {
       headless: true,
       timeout: 120000,
     });
-
-    console.log('Puppeteer browser launched-v3-with-spoofing engine');
+    console.log('Puppeteer browser launched-v4-with-spoofing engine');
   }
   return browser;
 }
 
-function normalizeUrl(url: string): string {
-  try {
-    const parsedUrl = new URL(url);
-    parsedUrl.search = ''; // Remove query parameters
-    parsedUrl.hash = ''; // Remove hash fragments
-    parsedUrl.protocol = 'https:'; // Ensure HTTPS
-    parsedUrl.pathname = parsedUrl.pathname.replace(/\/$/, ''); // Remove trailing slash
-    return parsedUrl.toString();
-  } catch (e) {
-    console.error('Error normalizing URL:', e);
-    return url;
-  }
-}
-
-async function checkPageStatusAndGetLinks(
-  url: string,
-  retries = 3,
-  delay = 5000,
-) {
+async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
   const browser = await getBrowser();
   let statusCode = 404;
-  let links: string[] = [];
-  let page: any = null;
+  let links = [];
+  let page = null;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       page = await browser.newPage();
-      //spoofing user agent and referer
-      await page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      );
-      await page.setExtraHTTPHeaders({
-        'Accept-Language': 'en-US,en;q=0.9',
-        Referer: 'https://google.com/',
-      });
       const response = await page.goto(url, { waitUntil: 'networkidle2' });
-
       statusCode = response?.status() || 404;
-
       if (statusCode === 200) {
-        const domain = new URL(url).hostname;
-        links = await page.$$eval(
-          'a',
-          (anchors: HTMLAnchorElement[], domain: string) => {
-            return anchors
-              .map((anchor) => anchor.href)
-              .filter((href) => {
-                try {
-                  return new URL(href).hostname === domain;
-                } catch (e) {
-                  return false;
-                }
-              });
-          },
-          domain,
+        links = await page.$$eval('a', (anchors) =>
+          anchors.map((anchor) => anchor.href),
         );
       }
       break;
     } catch (error) {
       console.error(`Error on attempt ${attempt} fetching page ${url}:`, error);
-      if (attempt === retries) {
+      if (attempt === retries)
         throw new Error(`Failed after ${retries} attempts: ${url}`);
-      }
-      console.log(`Retrying in ${delay / 1000} seconds...`);
-      await sleep(delay);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     } finally {
       if (page) await page.close();
     }
   }
-
   return { statusCode, links };
 }
 
-async function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function deepScan(
-  initialUrl: string,
-  email: string,
-  postActionApi: string,
-) {
-  const allPages = new Set<string>([normalizeUrl(initialUrl)]);
-  const brokenLinks = new Set<string>();
-  const pageToVisit = new Set<string>([normalizeUrl(initialUrl)]);
+export async function deepScan(initialUrl, email, postActionApi) {
+  const allPages = new Set([initialUrl]);
+  const brokenLinks = new Set();
+  const pageToVisit = new Set([initialUrl]);
   const emailer = new Emailer();
 
   try {
@@ -116,21 +63,14 @@ export async function deepScan(
       const url = pageToVisit.values().next().value;
       pageToVisit.delete(url);
 
-      await sleep(500);
-
       try {
         const response = await checkPageStatusAndGetLinks(url);
         console.log('Crawling:', url, response.statusCode);
-
-        if (response.statusCode === 404) {
-          brokenLinks.add(url);
-        }
-
+        if (response.statusCode === 404) brokenLinks.add(url);
         response.links.forEach((link) => {
-          const normalizedLink = normalizeUrl(link);
-          if (!allPages.has(normalizedLink)) {
-            allPages.add(normalizedLink);
-            pageToVisit.add(normalizedLink);
+          if (!allPages.has(link)) {
+            allPages.add(link);
+            pageToVisit.add(link);
           }
         });
       } catch (error) {
