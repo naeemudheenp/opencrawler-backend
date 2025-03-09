@@ -54,7 +54,7 @@ async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
 
 export async function deepScan(initialUrl, email, postActionApi) {
   const allPages = new Set([initialUrl]);
-  const brokenLinks = new Set();
+  const brokenLinks: any = new Set();
   const pageToVisit = new Set([initialUrl]);
   const emailer = new Emailer();
 
