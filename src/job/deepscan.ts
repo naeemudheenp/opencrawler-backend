@@ -16,10 +16,10 @@ async function getBrowser() {
         '--disable-gpu',
       ],
       headless: true,
-      timeout: 60000,
+      timeout: 120000,
     });
 
-    console.log('Puppeteer browser launched-v2 engine');
+    console.log('Puppeteer browser launched-v3 engine');
   }
   return browser;
 }
@@ -51,7 +51,7 @@ async function checkPageStatusAndGetLinks(
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       page = await browser.newPage();
-      const response = await page.goto(url, { waitUntil: 'networkidle0' });
+      const response = await page.goto(url, { waitUntil: 'networkidle2' });
 
       statusCode = response?.status() || 404;
 
