@@ -19,7 +19,7 @@ async function getBrowser() {
       timeout: 120000,
     });
 
-    console.log('Puppeteer browser launched-v3 engine');
+    console.log('Puppeteer browser launched-v3-with-spoofing engine');
   }
   return browser;
 }
@@ -51,6 +51,14 @@ async function checkPageStatusAndGetLinks(
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       page = await browser.newPage();
+      //spoofing user agent and referer
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      );
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        Referer: 'https://google.com/',
+      });
       const response = await page.goto(url, { waitUntil: 'networkidle2' });
 
       statusCode = response?.status() || 404;
