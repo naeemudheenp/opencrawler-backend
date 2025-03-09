@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer';
 import { Emailer } from 'src/emails/emailer';
+import { URL } from 'url';
 
 let browser = null;
 
@@ -18,9 +19,7 @@ async function getBrowser() {
       headless: true,
       timeout: 120000,
     });
-    console.log(
-      'Puppeteer browser launched v5 with spoofing and fetch as backup',
-    );
+    console.log('Puppeteer browser launched v10');
   }
   return browser;
 }
@@ -28,13 +27,14 @@ async function getBrowser() {
 async function fetchPageLinks(url) {
   try {
     const response = await fetch(url);
-    if (!response.ok) return { statusCode: response.status, links: [] };
+    if (!response.ok) return { statusCode: 404, links: [] };
     const text = await response.text();
     const links = Array.from(
-      new DOMParser().parseFromString(text, 'text/html').querySelectorAll('a'),
-    ).map((anchor) => anchor.href);
+      text.matchAll(/<a\s+(?:[^>]*?\s+)?href=["']([^"']+)["']/g),
+    ).map((match) => match[1]);
     return { statusCode: 200, links };
-  } catch {
+  } catch (error) {
+    console.error(`Fetch failed for ${url}:`, error);
     return { statusCode: 404, links: [] };
   }
 }
@@ -49,7 +49,7 @@ async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
     try {
       page = await browser.newPage();
       const response = await page.goto(url, {
-        waitUntil: 'networkidle2',
+        waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
       statusCode = response?.status() || 404;
@@ -63,7 +63,9 @@ async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
       console.error(`Error on attempt ${attempt} fetching page ${url}:`, error);
       if (attempt === retries) {
         console.log(`Falling back to fetch for ${url}`);
-        return fetchPageLinks(url);
+        const fetchResponse = await fetchPageLinks(url);
+        statusCode = fetchResponse.statusCode;
+        links = fetchResponse.links;
       }
       await new Promise((resolve) => setTimeout(resolve, delay));
     } finally {
@@ -78,6 +80,7 @@ export async function deepScan(initialUrl, email, postActionApi) {
   const brokenLinks: any = new Set();
   const pageToVisit = new Set([initialUrl]);
   const emailer = new Emailer();
+  const baseDomain = new URL(initialUrl).origin;
 
   try {
     while (pageToVisit.size > 0) {
@@ -89,10 +92,13 @@ export async function deepScan(initialUrl, email, postActionApi) {
         console.log('Crawling:', url, response.statusCode);
         if (response.statusCode === 404) brokenLinks.add(url);
         response.links.forEach((link) => {
-          if (!allPages.has(link)) {
-            allPages.add(link);
-            pageToVisit.add(link);
-          }
+          try {
+            const linkDomain = new URL(link, initialUrl).origin;
+            if (!allPages.has(link) && linkDomain === baseDomain) {
+              allPages.add(link);
+              pageToVisit.add(link);
+            }
+          } catch {}
         });
       } catch (error) {
         console.error(`Error crawling ${url}:`, error);
