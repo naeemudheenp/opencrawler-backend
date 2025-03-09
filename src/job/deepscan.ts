@@ -7,22 +7,19 @@ async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
       args: [
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
         '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
         '--no-zygote',
-        '--deterministic-fetch',
-        '--disable-features=IsolateOrigins',
-        '--disable-site-isolation-trials',
+        '--single-process',
+        '--disable-gpu',
       ],
       headless: true,
       timeout: 60000,
-      protocolTimeout: 120000,
     });
 
-    console.log('Puppeteer browser launched');
+    console.log('Puppeteer browser launched-v2 engine');
   }
   return browser;
 }
