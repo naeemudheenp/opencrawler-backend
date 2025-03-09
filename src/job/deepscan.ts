@@ -16,7 +16,6 @@ async function getBrowser() {
         '--deterministic-fetch',
         '--disable-features=IsolateOrigins',
         '--disable-site-isolation-trials',
-        // '--single-process',
       ],
       headless: true,
       timeout: 60000,
@@ -26,6 +25,20 @@ async function getBrowser() {
     console.log('Puppeteer browser launched');
   }
   return browser;
+}
+
+function normalizeUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.search = ''; // Remove query parameters
+    parsedUrl.hash = ''; // Remove hash fragments
+    parsedUrl.protocol = 'https:'; // Ensure HTTPS
+    parsedUrl.pathname = parsedUrl.pathname.replace(/\/$/, ''); // Remove trailing slash
+    return parsedUrl.toString();
+  } catch (e) {
+    console.error('Error normalizing URL:', e);
+    return url;
+  }
 }
 
 async function checkPageStatusAndGetLinks(
@@ -42,7 +55,6 @@ async function checkPageStatusAndGetLinks(
     try {
       page = await browser.newPage();
       const response = await page.goto(url, { waitUntil: 'networkidle0' });
-      console.log(response, 'response', url);
 
       statusCode = response?.status() || 404;
 
@@ -57,7 +69,6 @@ async function checkPageStatusAndGetLinks(
                 try {
                   return new URL(href).hostname === domain;
                 } catch (e) {
-                  console.error('Error parsing URL:', e);
                   return false;
                 }
               });
@@ -65,7 +76,6 @@ async function checkPageStatusAndGetLinks(
           domain,
         );
       }
-
       break;
     } catch (error) {
       console.error(`Error on attempt ${attempt} fetching page ${url}:`, error);
@@ -91,21 +101,15 @@ export async function deepScan(
   email: string,
   postActionApi: string,
 ) {
-  const allPages = new Set<string>([initialUrl]);
+  const allPages = new Set<string>([normalizeUrl(initialUrl)]);
   const brokenLinks = new Set<string>();
-  const pageToVisit = [initialUrl];
+  const pageToVisit = new Set<string>([normalizeUrl(initialUrl)]);
   const emailer = new Emailer();
-  const MAX_PAGES_TO_VISIT = 50000000;
 
   try {
-    while (pageToVisit.length > 0) {
-      if (allPages.size >= MAX_PAGES_TO_VISIT) {
-        console.log('Reached page crawl limit, stopping further requests.');
-        break;
-      }
-
-      const url = pageToVisit.shift();
-      if (!url) continue;
+    while (pageToVisit.size > 0) {
+      const url = pageToVisit.values().next().value;
+      pageToVisit.delete(url);
 
       await sleep(500);
 
@@ -118,9 +122,10 @@ export async function deepScan(
         }
 
         response.links.forEach((link) => {
-          if (!allPages.has(link)) {
-            allPages.add(link);
-            pageToVisit.push(link);
+          const normalizedLink = normalizeUrl(link);
+          if (!allPages.has(normalizedLink)) {
+            allPages.add(normalizedLink);
+            pageToVisit.add(normalizedLink);
           }
         });
       } catch (error) {
