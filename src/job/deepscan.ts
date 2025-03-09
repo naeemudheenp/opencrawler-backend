@@ -18,9 +18,25 @@ async function getBrowser() {
       headless: true,
       timeout: 120000,
     });
-    console.log('Puppeteer browser launched-v4-with-spoofing engine');
+    console.log(
+      'Puppeteer browser launched v5 with spoofing and fetch as backup',
+    );
   }
   return browser;
+}
+
+async function fetchPageLinks(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return { statusCode: response.status, links: [] };
+    const text = await response.text();
+    const links = Array.from(
+      new DOMParser().parseFromString(text, 'text/html').querySelectorAll('a'),
+    ).map((anchor) => anchor.href);
+    return { statusCode: 200, links };
+  } catch {
+    return { statusCode: 404, links: [] };
+  }
 }
 
 async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
@@ -32,7 +48,10 @@ async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       page = await browser.newPage();
-      const response = await page.goto(url, { waitUntil: 'networkidle2' });
+      const response = await page.goto(url, {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
       statusCode = response?.status() || 404;
       if (statusCode === 200) {
         links = await page.$$eval('a', (anchors) =>
@@ -42,8 +61,10 @@ async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
       break;
     } catch (error) {
       console.error(`Error on attempt ${attempt} fetching page ${url}:`, error);
-      if (attempt === retries)
-        throw new Error(`Failed after ${retries} attempts: ${url}`);
+      if (attempt === retries) {
+        console.log(`Falling back to fetch for ${url}`);
+        return fetchPageLinks(url);
+      }
       await new Promise((resolve) => setTimeout(resolve, delay));
     } finally {
       if (page) await page.close();
@@ -54,7 +75,7 @@ async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
 
 export async function deepScan(initialUrl, email, postActionApi) {
   const allPages = new Set([initialUrl]);
-  const brokenLinks: any = new Set();
+  const brokenLinks = new Set();
   const pageToVisit = new Set([initialUrl]);
   const emailer = new Emailer();
 
