@@ -4,6 +4,17 @@ import { URL } from 'url';
 
 let browser = null;
 
+function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    u.hash = '';
+    u.search = '';
+    return u.href.replace(/\/$/, ''); // Remove trailing slash
+  } catch {
+    return url;
+  }
+}
+
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
@@ -39,48 +50,57 @@ async function fetchPageLinks(url) {
   }
 }
 
-async function checkPageStatusAndGetLinks(url, retries = 3, delay = 5000) {
+async function checkPageStatusAndGetLinks(url) {
   const browser = await getBrowser();
   let statusCode = 404;
   let links = [];
   let page = null;
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      page = await browser.newPage();
-      const response = await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000,
-      });
-      statusCode = response?.status() || 404;
-      if (statusCode === 200) {
-        links = await page.$$eval('a', (anchors) =>
-          anchors.map((anchor) => anchor.href),
-        );
+  try {
+    page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const type = req.resourceType();
+      if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+        req.abort();
+      } else {
+        req.continue();
       }
-      break;
-    } catch (error) {
-      console.error(`Error on attempt ${attempt} fetching page ${url}:`, error);
-      if (attempt === retries) {
-        console.log(`Falling back to fetch for ${url}`);
-        const fetchResponse = await fetchPageLinks(url);
-        statusCode = fetchResponse.statusCode;
-        links = fetchResponse.links;
-      }
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    } finally {
-      if (page) await page.close();
+    });
+
+    const response = await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 10000,
+    });
+    statusCode = response?.status() || 404;
+    if (statusCode === 200) {
+      links = await page.$$eval('a', (anchors) =>
+        anchors.map((anchor) => anchor.href),
+      );
     }
+  } catch (error) {
+    console.error(`Puppeteer failed for ${url}:`, error);
+    const fallback = await fetchPageLinks(url);
+    statusCode = fallback.statusCode;
+    links = fallback.links;
+  } finally {
+    if (page) await page.close();
   }
+
   return { statusCode, links };
 }
 
 export async function deepScan(initialUrl, email, postActionApi) {
-  const allPages = new Set([initialUrl]);
-  const brokenLinks: any = new Set();
-  const pageToVisit = new Set([initialUrl]);
+  const allPages = new Set<string>();
+  const brokenLinks = new Set<string>();
+  const pageToVisit = new Set<string>();
+
   const emailer = new Emailer();
   const baseDomain = new URL(initialUrl).origin;
+
+  const normalizedInitial = normalizeUrl(initialUrl);
+  allPages.add(normalizedInitial);
+  pageToVisit.add(normalizedInitial);
 
   try {
     while (pageToVisit.size > 0) {
@@ -91,12 +111,14 @@ export async function deepScan(initialUrl, email, postActionApi) {
         const response = await checkPageStatusAndGetLinks(url);
         console.log('Crawling:', url, response.statusCode);
         if (response.statusCode === 404) brokenLinks.add(url);
+
         response.links.forEach((link) => {
           try {
-            const linkDomain = new URL(link, initialUrl).origin;
-            if (!allPages.has(link) && linkDomain === baseDomain) {
-              allPages.add(link);
-              pageToVisit.add(link);
+            const normalizedLink = normalizeUrl(new URL(link, url).href);
+            const linkDomain = new URL(normalizedLink).origin;
+            if (!allPages.has(normalizedLink) && linkDomain === baseDomain) {
+              allPages.add(normalizedLink);
+              pageToVisit.add(normalizedLink);
             }
           } catch {}
         });
