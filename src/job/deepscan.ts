@@ -9,8 +9,11 @@ function normalizeUrl(url: string): string {
     const u = new URL(url);
     u.hash = '';
     u.search = '';
-    return u.href.replace(/\/$/, '');
+    const normalized = u.href.replace(/\/$/, '');
+    console.log(`[LOG] Normalized URL: ${url} -> ${normalized}`);
+    return normalized;
   } catch {
+    console.warn(`[WARN] Failed to normalize URL: ${url}`);
     return url;
   }
 }
@@ -21,6 +24,7 @@ function delay(ms: number): Promise<void> {
 
 async function getBrowser() {
   if (!browser) {
+    console.log('[LOG] Launching Puppeteer browser...');
     browser = await puppeteer.launch({
       args: [
         '--no-sandbox',
@@ -41,13 +45,18 @@ async function getBrowser() {
 
 async function fetchPageLinks(url: string): Promise<{ statusCode: number; links: string[] }> {
   try {
+    console.log(`[FETCH] Trying fallback fetch for ${url}`);
     const response = await fetch(url);
-    if (!response.ok) return { statusCode: 404, links: [] };
+    if (!response.ok) {
+      console.warn(`[FETCH] Non-200 response (${response.status}) for ${url}`);
+      return { statusCode: 404, links: [] };
+    }
     const text = await response.text();
     const links = Array.from(text.matchAll(/<a\s+(?:[^>]*?\s+)?href=["']([^"']+)["']/g)).map((match) => match[1]);
+    console.log(`[FETCH] Fetched ${links.length} links from ${url}`);
     return { statusCode: 200, links };
   } catch (error) {
-    console.error(`[SCAN] Fetch failed for ${url}:`, error);
+    console.error(`[FETCH] Fetch failed for ${url}:`, error);
     return { statusCode: 404, links: [] };
   }
 }
@@ -57,6 +66,7 @@ async function checkPageStatusAndGetLinks(page, url: string): Promise<{ statusCo
   let links: string[] = [];
 
   try {
+    console.log(`[PUPPETEER] Navigating to ${url}`);
     await page.setRequestInterception(true);
     page.removeAllListeners('request');
 
@@ -75,11 +85,14 @@ async function checkPageStatusAndGetLinks(page, url: string): Promise<{ statusCo
     });
 
     statusCode = response?.status() || 404;
+    console.log(`[PUPPETEER] Status code for ${url}: ${statusCode}`);
+
     if (statusCode === 200) {
       links = await page.$$eval('a', (anchors) => anchors.map((anchor) => anchor.href));
+      console.log(`[PUPPETEER] Extracted ${links.length} links from ${url}`);
     }
   } catch (error) {
-    console.error(`[SCAN] Puppeteer failed for ${url}, falling back to fetch...`, error);
+    console.error(`[PUPPETEER] Failed to crawl ${url}, falling back to fetch`, error);
     const fallback = await fetchPageLinks(url);
     statusCode = fallback.statusCode;
     links = fallback.links;
@@ -103,9 +116,13 @@ export async function deepScan(initialUrl: string, email: string, postActionApi?
     const browser = await getBrowser();
     const page = await browser.newPage();
 
-    while (pageToVisit.size > 0 && allPages.size < 999) {
+    console.log(`[SCAN] Starting deep scan from ${normalizedInitial}`);
+
+    while (pageToVisit.size > 0 && allPages.size < 2000) {
       const url = pageToVisit.values().next().value;
       pageToVisit.delete(url);
+      console.log(`[QUEUE] Visiting next URL: ${url}`);
+      console.log(`[QUEUE] Remaining queue size: ${pageToVisit.size}`);
 
       try {
         const response = await checkPageStatusAndGetLinks(page, url);
@@ -120,15 +137,18 @@ export async function deepScan(initialUrl: string, email: string, postActionApi?
             if (!allPages.has(normalizedLink) && linkDomain === baseDomain) {
               allPages.add(normalizedLink);
               pageToVisit.add(normalizedLink);
+              console.log(`[DISCOVERY] Discovered new URL: ${normalizedLink}`);
             }
-          } catch {}
+          } catch (err) {
+            console.warn(`[DISCOVERY] Invalid or external link skipped: ${link}`);
+          }
         }
       } catch (error) {
         console.error(`[SCAN] Error crawling ${url}:`, error);
         brokenLinks.add(url);
       }
 
-      await delay(1000); // ⏳ Delay between requests
+      await delay(1000); // throttle crawling
     }
 
     await page.close();
@@ -144,10 +164,13 @@ export async function deepScan(initialUrl: string, email: string, postActionApi?
         }),
       });
     } else {
+      console.log('[SCAN] Sending results via email...');
       await emailer.crawlingCompletedEmail(email, brokenLinks, allPages);
     }
+
+    console.log(`[COMPLETE] Scan finished. Total pages: ${allPages.size}, Broken links: ${brokenLinks.size}`);
   } catch (error) {
-    console.error('[SCAN] Error during deep scan:', error);
+    console.error('[SCAN] Fatal error during scan:', error);
   } finally {
     if (browser) {
       console.log('[SCAN] Closing Puppeteer browser...');
