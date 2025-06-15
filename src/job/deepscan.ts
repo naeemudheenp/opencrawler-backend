@@ -95,7 +95,7 @@ async function checkPageStatusAndGetLinks(url) {
 }
 
 export async function deepScan(initialUrl, email, postActionApi) {
-  const allPages = new Set<string>();
+  const visitedUrls = new Set<string>();
   const brokenLinks = new Set<string>();
   const pageToVisit = new Set<string>();
 
@@ -103,61 +103,89 @@ export async function deepScan(initialUrl, email, postActionApi) {
   const baseDomain = new URL(initialUrl).origin;
 
   const normalizedInitial = normalizeUrl(initialUrl);
-  allPages.add(normalizedInitial);
+  visitedUrls.add(normalizedInitial);
   pageToVisit.add(normalizedInitial);
 
   try {
-    while (pageToVisit.size > 0) {
+    while (pageToVisit.size > 0 && visitedUrls.size < 999) {
       const url = pageToVisit.values().next().value;
       pageToVisit.delete(url);
 
-      try {
-        const response = await checkPageStatusAndGetLinks(url);
-        console.log('Crawling:', url, response.statusCode);
-        if (response.statusCode === 404) brokenLinks.add(url);
+      console.log(`[SCAN] Crawling: ${url} (${visitedUrls.size + 1}/999)`);
 
-        response.links.forEach((link) => {
+      let statusCode = 404;
+      let links: string[] = [];
+
+      try {
+        const fetchResult = await fetchPageLinks(url);
+        statusCode = fetchResult.statusCode;
+        links = fetchResult.links;
+
+        if (statusCode !== 200) {
+          const fallback = await checkPageStatusAndGetLinks(url);
+          statusCode = fallback.statusCode;
+          links = fallback.links;
+        }
+
+        if (statusCode === 404) {
+          brokenLinks.add(url);
+          console.log(`[SCAN] Broken: ${url}`);
+        }
+
+        visitedUrls.add(url);
+
+        links.forEach((link) => {
           try {
             const normalizedLink = normalizeUrl(new URL(link, url).href);
             const linkDomain = new URL(normalizedLink).origin;
-            if (!allPages.has(normalizedLink) && linkDomain === baseDomain) {
-              allPages.add(normalizedLink);
+
+            if (
+              linkDomain === baseDomain &&
+              !visitedUrls.has(normalizedLink) &&
+              !pageToVisit.has(normalizedLink)
+            ) {
               pageToVisit.add(normalizedLink);
             }
           } catch {}
         });
       } catch (error) {
-        console.error(`Error crawling ${url}:`, error);
+        console.error(`[SCAN] Error crawling ${url}:`, error);
         brokenLinks.add(url);
       }
 
-      // ✅ Delay between each request to prevent server overload
-      await delay(500); 
+      console.log(`[SCAN] Waiting for 1000ms before next request...`);
+      await delay(1000);
+    }
+
+    if (visitedUrls.size >= 999) {
+      console.log(`[SCAN] 🚫 Scan limit of 999 pages reached.`);
     }
 
     if (postActionApi) {
-      console.log('Sending crawl data to API...');
+      console.log(`[SCAN] Sending crawl data to API...`);
       await fetch(postActionApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           brokenLinks: [...brokenLinks],
-          allPages: [...allPages],
+          allPages: [...visitedUrls],
         }),
       });
     } else {
-      await emailer.crawlingCompletedEmail(email, brokenLinks, allPages);
+      console.log(`[SCAN] Sending crawl results via email...`);
+      await emailer.crawlingCompletedEmail(email, brokenLinks, visitedUrls);
     }
   } catch (error) {
-    console.error('Error during deep scan:', error);
+    console.error(`[SCAN] Error during deep scan:`, error);
   } finally {
     if (browser) {
-      console.log('Closing Puppeteer browser...');
+      console.log(`[SCAN] Closing Puppeteer browser...`);
       await browser.close();
       browser = null;
     }
   }
 }
+
 
 process.on('SIGINT', async () => {
   if (browser) {
