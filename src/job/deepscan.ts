@@ -9,10 +9,14 @@ function normalizeUrl(url) {
     const u = new URL(url);
     u.hash = '';
     u.search = '';
-    return u.href.replace(/\/$/, ''); // Remove trailing slash
+    return u.href.replace(/\/$/, '');
   } catch {
     return url;
   }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function getBrowser() {
@@ -126,6 +130,9 @@ export async function deepScan(initialUrl, email, postActionApi) {
         console.error(`Error crawling ${url}:`, error);
         brokenLinks.add(url);
       }
+
+      // ✅ Delay between each request to prevent server overload
+      await delay(500); 
     }
 
     if (postActionApi) {
